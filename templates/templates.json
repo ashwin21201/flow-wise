@@ -1,0 +1,356 @@
+{
+  "templates": [
+    {
+      "id": "three-tier-web",
+      "name": "3-Tier Web Application",
+      "description": "Classic three-tier architecture with load balancer, auto-scaling web/app tier, and managed relational database. Best for web apps, SaaS, e-commerce, and customer-facing portals.",
+      "use_cases": ["e-commerce", "SaaS platform", "web portal", "content management", "customer dashboard"],
+      "keywords": ["web", "saas", "portal", "e-commerce", "ecommerce", "shop", "store", "cms", "blog", "dashboard", "platform", "three-tier", "3-tier"],
+      "scale": ["small", "medium", "large"],
+      "resources": {
+        "networking": [
+          { "name": "Application Load Balancer", "type": "load_balancer", "purpose": "Distributes HTTP/HTTPS traffic across app instances" },
+          { "name": "CDN (CloudFront/Fastly)", "type": "cdn", "purpose": "Static asset delivery and edge caching", "optional": true },
+          { "name": "WAF", "type": "security", "purpose": "Web application firewall for OWASP protection", "optional": true }
+        ],
+        "compute": [
+          { "name": "Web/App Tier", "type": "auto_scaling_group", "purpose": "Stateless application servers with auto-scaling", "min": 2, "max": 8 },
+          { "name": "Bastion Host", "type": "instance", "purpose": "Secure SSH access to private subnets", "optional": true }
+        ],
+        "database": [
+          { "name": "Primary RDS (PostgreSQL/MySQL)", "type": "rds", "purpose": "Managed relational database with automated backups" },
+          { "name": "Read Replica", "type": "rds_replica", "purpose": "Scale read operations, reduce load on primary", "optional": true },
+          { "name": "ElastiCache (Redis)", "type": "cache", "purpose": "Session store, query cache, real-time features", "optional": true }
+        ],
+        "security": [
+          { "name": "Public Security Group", "type": "security_group", "rules": ["80/443 from 0.0.0.0/0"] },
+          { "name": "App Security Group", "type": "security_group", "rules": ["8080 from LB SG only"] },
+          { "name": "DB Security Group", "type": "security_group", "rules": ["5432/3306 from App SG only"] },
+          { "name": "IAM Roles", "type": "iam", "purpose": "Least-privilege roles for EC2/ECS access to AWS services" }
+        ],
+        "storage": [
+          { "name": "S3 Bucket", "type": "object_storage", "purpose": "Static assets, uploads, backups" }
+        ]
+      },
+      "network_schema": {
+        "vpc": { "cidr": "10.0.0.0/16", "name": "Main VPC" },
+        "subnets": [
+          { "name": "Public Subnet A", "cidr": "10.0.1.0/24", "az": "us-east-1a", "type": "public" },
+          { "name": "Public Subnet B", "cidr": "10.0.2.0/24", "az": "us-east-1b", "type": "public" },
+          { "name": "App Subnet A", "cidr": "10.0.11.0/24", "az": "us-east-1a", "type": "private" },
+          { "name": "App Subnet B", "cidr": "10.0.12.0/24", "az": "us-east-1b", "type": "private" },
+          { "name": "DB Subnet A", "cidr": "10.0.21.0/24", "az": "us-east-1a", "type": "private" },
+          { "name": "DB Subnet B", "cidr": "10.0.22.0/24", "az": "us-east-1b", "type": "private" }
+        ],
+        "gateways": [
+          { "name": "Internet Gateway", "type": "igw" },
+          { "name": "NAT Gateway", "type": "nat", "subnet": "Public Subnet A" }
+        ]
+      },
+      "security_rules": [
+        { "name": "HTTPS only", "description": "Redirect all HTTP to HTTPS at load balancer level" },
+        { "name": "Private subnets", "description": "App and DB tiers have no direct internet access" },
+        { "name": "Security group chaining", "description": "Each tier only accepts traffic from the tier above it" },
+        { "name": "Encryption at rest", "description": "RDS and S3 encryption enabled by default" },
+        { "name": "Encryption in transit", "description": "TLS/SSL for all inter-service communication" }
+      ],
+      "required_variables": ["instance_type", "db_instance_class", "db_engine", "min_instances"],
+      "optional_defaults": {
+        "instance_type": "t3.medium",
+        "db_instance_class": "db.t3.medium",
+        "db_engine": "postgres",
+        "min_instances": 2,
+        "max_instances": 4,
+        "enable_cdn": false,
+        "enable_waf": false,
+        "enable_multi_az": true,
+        "enable_read_replica": false,
+        "cache_enabled": false,
+        "backup_retention_days": 7
+      },
+      "cytoscape_elements": {
+        "nodes": [
+          { "data": { "id": "internet", "label": "Internet", "type": "external", "icon": "globe" } },
+          { "data": { "id": "cdn", "label": "CDN", "type": "networking", "icon": "network", "parent": "public_subnet" } },
+          { "data": { "id": "waf", "label": "WAF", "type": "security", "icon": "shield", "parent": "public_subnet" } },
+          { "data": { "id": "alb", "label": "Load Balancer", "type": "networking", "icon": "balance", "parent": "public_subnet" } },
+          { "data": { "id": "public_subnet", "label": "Public Subnet", "type": "subnet" } },
+          { "data": { "id": "app_subnet", "label": "App Tier (Private)", "type": "subnet" } },
+          { "data": { "id": "db_subnet", "label": "DB Tier (Private)", "type": "subnet" } },
+          { "data": { "id": "vpc", "label": "VPC (10.0.0.0/16)", "type": "vpc" } },
+          { "data": { "id": "app", "label": "App Servers\n(Auto Scaling)", "type": "compute", "icon": "server", "parent": "app_subnet" } },
+          { "data": { "id": "cache", "label": "Redis Cache", "type": "cache", "icon": "database", "parent": "app_subnet" } },
+          { "data": { "id": "db", "label": "RDS Primary", "type": "database", "icon": "database", "parent": "db_subnet" } },
+          { "data": { "id": "db_replica", "label": "RDS Replica", "type": "database", "icon": "database", "parent": "db_subnet" } },
+          { "data": { "id": "s3", "label": "S3 Storage", "type": "storage", "icon": "storage" } }
+        ],
+        "edges": [
+          { "data": { "id": "e1", "source": "internet", "target": "cdn", "label": "HTTPS" } },
+          { "data": { "id": "e2", "source": "cdn", "target": "alb", "label": "" } },
+          { "data": { "id": "e3", "source": "internet", "target": "waf", "label": "" } },
+          { "data": { "id": "e4", "source": "waf", "target": "alb", "label": "" } },
+          { "data": { "id": "e5", "source": "alb", "target": "app", "label": "HTTP" } },
+          { "data": { "id": "e6", "source": "app", "target": "cache", "label": "" } },
+          { "data": { "id": "e7", "source": "app", "target": "db", "label": "SQL" } },
+          { "data": { "id": "e8", "source": "db", "target": "db_replica", "label": "Replication" } },
+          { "data": { "id": "e9", "source": "app", "target": "s3", "label": "Assets" } }
+        ]
+      }
+    },
+    {
+      "id": "two-tier-app",
+      "name": "2-Tier Application",
+      "description": "Simplified two-tier architecture with a single application layer and database. Ideal for MVPs, internal tools, mobile backends, and simple APIs where operational simplicity matters.",
+      "use_cases": ["MVP", "internal tool", "mobile backend", "REST API", "simple web app", "startup"],
+      "keywords": ["mvp", "simple", "api", "mobile", "backend", "internal", "startup", "prototype", "two-tier", "2-tier", "basic", "lightweight"],
+      "scale": ["small", "medium"],
+      "resources": {
+        "networking": [
+          { "name": "Application Load Balancer", "type": "load_balancer", "purpose": "HTTP/HTTPS traffic distribution" }
+        ],
+        "compute": [
+          { "name": "App Tier", "type": "auto_scaling_group", "purpose": "Application servers", "min": 1, "max": 4 }
+        ],
+        "database": [
+          { "name": "RDS Instance", "type": "rds", "purpose": "Managed relational database" }
+        ],
+        "security": [
+          { "name": "Public SG", "type": "security_group", "rules": ["80/443 from 0.0.0.0/0"] },
+          { "name": "App SG", "type": "security_group", "rules": ["App port from LB SG"] },
+          { "name": "DB SG", "type": "security_group", "rules": ["DB port from App SG"] }
+        ]
+      },
+      "network_schema": {
+        "vpc": { "cidr": "10.0.0.0/16", "name": "App VPC" },
+        "subnets": [
+          { "name": "Public Subnet", "cidr": "10.0.1.0/24", "az": "us-east-1a", "type": "public" },
+          { "name": "App Subnet", "cidr": "10.0.11.0/24", "az": "us-east-1a", "type": "private" },
+          { "name": "DB Subnet", "cidr": "10.0.21.0/24", "az": "us-east-1a", "type": "private" }
+        ],
+        "gateways": [
+          { "name": "Internet Gateway", "type": "igw" },
+          { "name": "NAT Gateway", "type": "nat", "subnet": "Public Subnet" }
+        ]
+      },
+      "security_rules": [
+        { "name": "Minimal attack surface", "description": "Only load balancer exposed to internet" },
+        { "name": "DB isolation", "description": "Database accessible only from app tier" }
+      ],
+      "required_variables": ["instance_type", "db_instance_class"],
+      "optional_defaults": {
+        "instance_type": "t3.small",
+        "db_instance_class": "db.t3.small",
+        "db_engine": "postgres",
+        "min_instances": 1,
+        "max_instances": 3,
+        "enable_cdn": false,
+        "enable_waf": false,
+        "enable_multi_az": false,
+        "backup_retention_days": 3
+      },
+      "cytoscape_elements": {
+        "nodes": [
+          { "data": { "id": "internet", "label": "Internet", "type": "external" } },
+          { "data": { "id": "alb", "label": "Load Balancer", "type": "networking", "parent": "public_subnet" } },
+          { "data": { "id": "public_subnet", "label": "Public Subnet", "type": "subnet" } },
+          { "data": { "id": "app_subnet", "label": "App Tier (Private)", "type": "subnet" } },
+          { "data": { "id": "db_subnet", "label": "DB Tier (Private)", "type": "subnet" } },
+          { "data": { "id": "vpc", "label": "VPC", "type": "vpc" } },
+          { "data": { "id": "app", "label": "App Servers", "type": "compute", "parent": "app_subnet" } },
+          { "data": { "id": "db", "label": "RDS Database", "type": "database", "parent": "db_subnet" } }
+        ],
+        "edges": [
+          { "data": { "id": "e1", "source": "internet", "target": "alb", "label": "HTTPS" } },
+          { "data": { "id": "e2", "source": "alb", "target": "app", "label": "HTTP" } },
+          { "data": { "id": "e3", "source": "app", "target": "db", "label": "SQL" } }
+        ]
+      }
+    },
+    {
+      "id": "microservices-basic",
+      "name": "Microservices Architecture",
+      "description": "Container-based microservices with API gateway, service mesh, independent databases per service, and message queue. Best for complex domains with independent team ownership and scaling requirements.",
+      "use_cases": ["large platform", "multi-team", "complex domain", "independent scaling", "enterprise SaaS", "fintech"],
+      "keywords": ["microservices", "micro-services", "containers", "kubernetes", "docker", "services", "independent", "scale independently", "team", "domain", "fintech", "enterprise"],
+      "scale": ["large", "enterprise"],
+      "resources": {
+        "networking": [
+          { "name": "API Gateway", "type": "api_gateway", "purpose": "Single entry point, routing, auth, rate limiting" },
+          { "name": "Internal Load Balancers", "type": "load_balancer", "purpose": "Service-to-service routing" },
+          { "name": "Service Mesh (Istio/Linkerd)", "type": "service_mesh", "purpose": "mTLS, observability, traffic management", "optional": true }
+        ],
+        "compute": [
+          { "name": "Container Orchestration (EKS/GKE)", "type": "kubernetes", "purpose": "Container scheduling, scaling, self-healing" },
+          { "name": "Service Pods", "type": "container", "purpose": "Individual microservice instances" }
+        ],
+        "database": [
+          { "name": "Service DB A (PostgreSQL)", "type": "rds", "purpose": "Database for Service A (DB-per-service pattern)" },
+          { "name": "Service DB B (MongoDB)", "type": "nosql", "purpose": "Database for Service B" },
+          { "name": "Message Queue (SQS/Kafka)", "type": "queue", "purpose": "Async communication between services" },
+          { "name": "Shared Cache (Redis)", "type": "cache", "purpose": "Distributed caching, session management" }
+        ],
+        "observability": [
+          { "name": "Centralized Logging", "type": "logging", "purpose": "Aggregate logs from all services" },
+          { "name": "Distributed Tracing", "type": "tracing", "purpose": "Request tracing across services" },
+          { "name": "Metrics (Prometheus/CloudWatch)", "type": "metrics", "purpose": "Performance and health monitoring" }
+        ],
+        "security": [
+          { "name": "Identity Provider", "type": "iam", "purpose": "OAuth2/OIDC for service and user auth" },
+          { "name": "Secrets Manager", "type": "secrets", "purpose": "Centralized credential management" },
+          { "name": "Network Policies", "type": "security_group", "purpose": "Service-to-service network rules" }
+        ]
+      },
+      "network_schema": {
+        "vpc": { "cidr": "10.0.0.0/16", "name": "Microservices VPC" },
+        "subnets": [
+          { "name": "Public Subnet A", "cidr": "10.0.1.0/24", "az": "us-east-1a", "type": "public" },
+          { "name": "Public Subnet B", "cidr": "10.0.2.0/24", "az": "us-east-1b", "type": "public" },
+          { "name": "Service Subnet A", "cidr": "10.0.10.0/23", "az": "us-east-1a", "type": "private" },
+          { "name": "Service Subnet B", "cidr": "10.0.12.0/23", "az": "us-east-1b", "type": "private" },
+          { "name": "Data Subnet A", "cidr": "10.0.20.0/24", "az": "us-east-1a", "type": "private" },
+          { "name": "Data Subnet B", "cidr": "10.0.21.0/24", "az": "us-east-1b", "type": "private" }
+        ],
+        "gateways": [
+          { "name": "Internet Gateway", "type": "igw" },
+          { "name": "NAT Gateway A", "type": "nat", "subnet": "Public Subnet A" },
+          { "name": "NAT Gateway B", "type": "nat", "subnet": "Public Subnet B" }
+        ]
+      },
+      "security_rules": [
+        { "name": "Zero-trust networking", "description": "All service-to-service calls require mTLS authentication" },
+        { "name": "API Gateway auth", "description": "All external requests validated at gateway before routing" },
+        { "name": "DB isolation", "description": "Each service owns its database; no cross-service DB access" },
+        { "name": "Least privilege IAM", "description": "Each service has its own IAM role with minimal permissions" }
+      ],
+      "required_variables": ["cluster_node_type", "service_count", "db_instances"],
+      "optional_defaults": {
+        "cluster_node_type": "t3.large",
+        "min_nodes": 3,
+        "max_nodes": 10,
+        "service_count": 4,
+        "enable_service_mesh": false,
+        "enable_waf": true,
+        "enable_multi_az": true,
+        "enable_distributed_tracing": true,
+        "message_queue": "sqs"
+      },
+      "cytoscape_elements": {
+        "nodes": [
+          { "data": { "id": "internet", "label": "Internet", "type": "external" } },
+          { "data": { "id": "apigw", "label": "API Gateway", "type": "networking", "parent": "public_subnet" } },
+          { "data": { "id": "public_subnet", "label": "Public Layer", "type": "subnet" } },
+          { "data": { "id": "service_subnet", "label": "Services Layer (Private)", "type": "subnet" } },
+          { "data": { "id": "data_subnet", "label": "Data Layer (Private)", "type": "subnet" } },
+          { "data": { "id": "vpc", "label": "VPC", "type": "vpc" } },
+          { "data": { "id": "svc_a", "label": "Service A\n(User Mgmt)", "type": "compute", "parent": "service_subnet" } },
+          { "data": { "id": "svc_b", "label": "Service B\n(Orders)", "type": "compute", "parent": "service_subnet" } },
+          { "data": { "id": "svc_c", "label": "Service C\n(Payments)", "type": "compute", "parent": "service_subnet" } },
+          { "data": { "id": "queue", "label": "Message Queue", "type": "queue", "parent": "service_subnet" } },
+          { "data": { "id": "cache", "label": "Redis Cache", "type": "cache", "parent": "data_subnet" } },
+          { "data": { "id": "db_a", "label": "DB (Users)", "type": "database", "parent": "data_subnet" } },
+          { "data": { "id": "db_b", "label": "DB (Orders)", "type": "database", "parent": "data_subnet" } },
+          { "data": { "id": "db_c", "label": "DB (Payments)", "type": "database", "parent": "data_subnet" } }
+        ],
+        "edges": [
+          { "data": { "id": "e1", "source": "internet", "target": "apigw", "label": "HTTPS" } },
+          { "data": { "id": "e2", "source": "apigw", "target": "svc_a", "label": "" } },
+          { "data": { "id": "e3", "source": "apigw", "target": "svc_b", "label": "" } },
+          { "data": { "id": "e4", "source": "apigw", "target": "svc_c", "label": "" } },
+          { "data": { "id": "e5", "source": "svc_b", "target": "queue", "label": "async" } },
+          { "data": { "id": "e6", "source": "queue", "target": "svc_c", "label": "" } },
+          { "data": { "id": "e7", "source": "svc_a", "target": "db_a", "label": "" } },
+          { "data": { "id": "e8", "source": "svc_b", "target": "db_b", "label": "" } },
+          { "data": { "id": "e9", "source": "svc_c", "target": "db_c", "label": "" } },
+          { "data": { "id": "e10", "source": "svc_a", "target": "cache", "label": "" } }
+        ]
+      }
+    },
+    {
+      "id": "event-driven-basic",
+      "name": "Event-Driven Architecture",
+      "description": "Event-driven system with message broker, producer/consumer services, and event store. Best for real-time processing, IoT data pipelines, notification systems, and async workflows.",
+      "use_cases": ["real-time processing", "IoT", "data pipeline", "notifications", "async workflow", "event streaming", "analytics ingestion"],
+      "keywords": ["event", "queue", "async", "real-time", "realtime", "streaming", "kafka", "iot", "pipeline", "notification", "webhook", "pub-sub", "pubsub", "worker"],
+      "scale": ["medium", "large", "enterprise"],
+      "resources": {
+        "networking": [
+          { "name": "API Gateway / Event Ingestion Endpoint", "type": "api_gateway", "purpose": "Accepts events from producers" },
+          { "name": "Internal Load Balancer", "type": "load_balancer", "purpose": "Routes to consumer services" }
+        ],
+        "compute": [
+          { "name": "Event Producers", "type": "compute", "purpose": "Generate and publish events" },
+          { "name": "Event Consumers / Processors", "type": "auto_scaling_group", "purpose": "Process events, scales with queue depth" },
+          { "name": "Scheduler / Cron Jobs", "type": "compute", "purpose": "Time-based event triggers", "optional": true }
+        ],
+        "messaging": [
+          { "name": "Message Broker (SQS/Kafka/SNS)", "type": "queue", "purpose": "Durable event queue with at-least-once delivery" },
+          { "name": "Dead Letter Queue", "type": "queue", "purpose": "Captures failed events for reprocessing" },
+          { "name": "Event Bus", "type": "event_bus", "purpose": "Topic-based fan-out routing" }
+        ],
+        "database": [
+          { "name": "Event Store (DynamoDB/Cassandra)", "type": "nosql", "purpose": "Immutable event log with time-series indexing" },
+          { "name": "Operational DB (PostgreSQL)", "type": "rds", "purpose": "Aggregated state, projections" },
+          { "name": "Time-Series DB", "type": "timeseries", "purpose": "Metrics and sensor data", "optional": true }
+        ],
+        "security": [
+          { "name": "Queue Access Policy", "type": "iam", "purpose": "Only authorized producers/consumers" },
+          { "name": "Event Encryption", "type": "encryption", "purpose": "Encrypt sensitive event payloads" }
+        ]
+      },
+      "network_schema": {
+        "vpc": { "cidr": "10.0.0.0/16", "name": "Event-Driven VPC" },
+        "subnets": [
+          { "name": "Ingestion Subnet", "cidr": "10.0.1.0/24", "az": "us-east-1a", "type": "public" },
+          { "name": "Processing Subnet A", "cidr": "10.0.10.0/24", "az": "us-east-1a", "type": "private" },
+          { "name": "Processing Subnet B", "cidr": "10.0.11.0/24", "az": "us-east-1b", "type": "private" },
+          { "name": "Storage Subnet", "cidr": "10.0.20.0/24", "az": "us-east-1a", "type": "private" }
+        ],
+        "gateways": [
+          { "name": "Internet Gateway", "type": "igw" },
+          { "name": "NAT Gateway", "type": "nat", "subnet": "Ingestion Subnet" }
+        ]
+      },
+      "security_rules": [
+        { "name": "Message signing", "description": "Events signed and verified to prevent tampering" },
+        { "name": "Consumer isolation", "description": "Each consumer has read access to specific queues only" },
+        { "name": "DLQ monitoring", "description": "Alerts on dead letter queue depth" }
+      ],
+      "required_variables": ["broker_type", "consumer_count"],
+      "optional_defaults": {
+        "broker_type": "sqs",
+        "min_consumers": 2,
+        "max_consumers": 20,
+        "message_retention_days": 14,
+        "enable_dlq": true,
+        "enable_multi_az": true,
+        "event_store": "dynamodb",
+        "enable_encryption": true
+      },
+      "cytoscape_elements": {
+        "nodes": [
+          { "data": { "id": "source", "label": "Event Sources\n(Apps / Devices)", "type": "external" } },
+          { "data": { "id": "ingestion", "label": "API Gateway\n(Ingestion)", "type": "networking", "parent": "ingestion_subnet" } },
+          { "data": { "id": "ingestion_subnet", "label": "Ingestion Layer", "type": "subnet" } },
+          { "data": { "id": "process_subnet", "label": "Processing Layer (Private)", "type": "subnet" } },
+          { "data": { "id": "storage_subnet", "label": "Storage Layer (Private)", "type": "subnet" } },
+          { "data": { "id": "vpc", "label": "VPC", "type": "vpc" } },
+          { "data": { "id": "broker", "label": "Message Broker\n(SQS/Kafka)", "type": "queue", "parent": "process_subnet" } },
+          { "data": { "id": "dlq", "label": "Dead Letter\nQueue", "type": "queue", "parent": "process_subnet" } },
+          { "data": { "id": "consumer", "label": "Event Processors\n(Auto Scaling)", "type": "compute", "parent": "process_subnet" } },
+          { "data": { "id": "scheduler", "label": "Scheduler", "type": "compute", "parent": "process_subnet" } },
+          { "data": { "id": "event_store", "label": "Event Store\n(DynamoDB)", "type": "database", "parent": "storage_subnet" } },
+          { "data": { "id": "op_db", "label": "Operational DB\n(PostgreSQL)", "type": "database", "parent": "storage_subnet" } }
+        ],
+        "edges": [
+          { "data": { "id": "e1", "source": "source", "target": "ingestion", "label": "events" } },
+          { "data": { "id": "e2", "source": "ingestion", "target": "broker", "label": "publish" } },
+          { "data": { "id": "e3", "source": "broker", "target": "consumer", "label": "consume" } },
+          { "data": { "id": "e4", "source": "broker", "target": "dlq", "label": "failed" } },
+          { "data": { "id": "e5", "source": "consumer", "target": "event_store", "label": "persist" } },
+          { "data": { "id": "e6", "source": "consumer", "target": "op_db", "label": "update" } },
+          { "data": { "id": "e7", "source": "scheduler", "target": "broker", "label": "scheduled" } }
+        ]
+      }
+    }
+  ]
+}
