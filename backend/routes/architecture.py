@@ -52,6 +52,14 @@ async def analyze_scope(req: ScopeRequest):
         client = _get_client()
         agent = ScopeAgent(client)
         result = await agent.run(user_input=req.user_input)
+        
+        # Check if Claude flagged content policy violation
+        if result.get("error") == "content_policy_violation":
+            raise HTTPException(
+                status_code=422,
+                detail=result.get("message", "Input blocked: disallowed content detected.")
+            )
+        
         return ScopeResponse(**result)
     except HTTPException:
         raise
@@ -69,6 +77,14 @@ async def select_mode(req: ModeRequest):
             user_input=req.user_input,
             scope=req.scope.model_dump(),
         )
+        
+        # Check if Claude flagged content policy violation
+        if result.get("error") == "content_policy_violation":
+            raise HTTPException(
+                status_code=422,
+                detail=result.get("message", "Input blocked: disallowed content detected.")
+            )
+        
         return ModeResponse(**result)
     except HTTPException:
         raise
@@ -86,6 +102,14 @@ async def auto_init(req: AutoPilotInitRequest):
             user_input=req.user_input,
             scope=req.scope.model_dump(),
         )
+        
+        # Check if Claude flagged content policy violation
+        if result.get("error") == "content_policy_violation":
+            raise HTTPException(
+                status_code=422,
+                detail=result.get("message", "Input blocked: disallowed content detected.")
+            )
+        
         return AutoPilotInitResponse(**result)
     except HTTPException:
         raise
@@ -105,6 +129,13 @@ async def auto_complete(req: AutoPilotCompleteRequest):
             auto_pilot_init=req.auto_pilot_init.model_dump(),
             quick_inputs=req.quick_inputs.model_dump(),
         )
+        
+        # Check if Claude flagged content policy violation
+        if isinstance(requirements, dict) and requirements.get("error") == "content_policy_violation":
+            raise HTTPException(
+                status_code=422,
+                detail=requirements.get("message", "Input blocked: disallowed content detected.")
+            )
 
         tmpl_agent = TemplateAgent(client)
         template_result = await tmpl_agent.run(requirements=requirements)
@@ -136,6 +167,14 @@ async def guided_questions(block: int, req: GuidedBlockRequest):
             scope=req.scope.model_dump(),
             previous_answers=req.previous_answers,
         )
+        
+        # Check if Claude flagged content policy violation
+        if result.get("error") == "content_policy_violation":
+            raise HTTPException(
+                status_code=422,
+                detail=result.get("message", "Input blocked: disallowed content detected.")
+            )
+        
         return GuidedBlockResponse(**result)
     except HTTPException:
         raise
